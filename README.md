@@ -61,6 +61,7 @@ Follow these steps to set up FinTracker on your local machine for development an
 ### Demo & Screenshots
 
 View our interactive demo to experience FinTracker's powerful features firsthand.
+Also, you can download [APK file](https://github.com/7Collector/FinTracker/releases/tag/release1) and run it on your device.
 [FinTracker Demo Video](https://drive.google.com/file/d/13Z0FPhU_EbIgSoL_CNU6nDsbjLvZfIFu/view?usp=drivesdk)
 ![FinTracker Dashboard](https://raw.githubusercontent.com/7Collector/FinTracker/main/Screenshot_2024-08-26-11-29-25-045_seven.collector.fintracker.jpg)
 *FinTracker's intuitive dashboard provides a comprehensive overview of your financial status.*
