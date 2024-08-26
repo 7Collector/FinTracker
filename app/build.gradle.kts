@@ -1,8 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
-
 android {
     namespace = "seven.collector.fintracker"
     compileSdk = 34
@@ -13,11 +13,16 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
+        val geminiApiKey: String? = project.findProperty("geminiApiKey") as String?
+        buildConfigField("String", "geminiApiKey", "\"${geminiApiKey ?: "default_value"}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -59,6 +64,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.gson)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.generativeai)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -13,6 +13,31 @@
         android:theme="@style/Theme.FinTracker"
         tools:targetApi="31">
         <activity
+            android:name=".AddTransactionActivity"
+            android:exported="false"
+            android:label="@string/title_activity_add_transaction"
+            android:theme="@style/Theme.FinTracker" />
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false"
+            android:label="@string/title_activity_chat"
+            android:theme="@style/Theme.FinTracker" />
+        <activity
+            android:name=".ProfileActivty"
+            android:exported="false"
+            android:label="@string/title_activity_profile_activty"
+            android:theme="@style/Theme.FinTracker" />
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:label="@string/title_activity_onboarding"
+            android:theme="@style/Theme.FinTracker" />
+        <activity
+            android:name=".TransactionsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_transactions"
+            android:theme="@style/Theme.FinTracker" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
