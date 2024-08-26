@@ -38,8 +38,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.gson.Gson
 import seven.collector.fintracker.data.Category
 import seven.collector.fintracker.data.Goal
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var obj: String
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installSplashScreen()
         enableEdgeToEdge()
         obj = getSharedPreferences("file", MODE_PRIVATE).getString("mainData", "") ?: ""
         if (obj.isEmpty()) {
@@ -113,7 +116,7 @@ fun FinTrackerApp(data: MainData, navigateTo: (String) -> Unit = {}) {
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     containerColor = MaterialTheme.colorScheme.primary
                 ) {
-                    Icon(Icons.Default.Refresh, "Bottom FAB 1")
+                    Icon(painter = painterResource(id = R.drawable.ai), "Bottom FAB 1")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 FloatingActionButton(
@@ -158,7 +161,8 @@ fun FinTrackerApp(data: MainData, navigateTo: (String) -> Unit = {}) {
             item {
                 TaxesCard(
                     taxCollected = data.taxCollected,
-                    taxableAmount = data.taxableAmount
+                    taxableAmount = data.taxableAmount,
+                    taxRate = data.taxRate
                 )
             }
         }
@@ -178,19 +182,6 @@ fun ProfileGreeting(name: String, navigateTo: (String) -> Unit = {}) {
             text = "Hello, $name!",
             style = MaterialTheme.typography.displaySmall.copy(color = MaterialTheme.colorScheme.primary)
         )
-        IconButton(
-            onClick = { navigateTo("profile") },
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Person,
-                contentDescription = "Profile Icon",
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(32.dp)
-            )
-        }
     }
 }
 
@@ -244,13 +235,19 @@ fun LimitsCard(categories: List<Category>) {
                                 text = category.name,
                                 style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary)
                             )
-                            Text(
-                                text = "₹${getFormattedMoney(category.limit - category.used)} left"
-                            )
+                            if (category.limit - category.used>0){
+                                Text(
+                                    text = "₹${getFormattedMoney(category.limit - category.used)} left"
+                                )
+                            } else {
+                                Text(
+                                    text = "₹${getFormattedMoney(category.used - category.limit)} overspent"
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         LinearProgressIndicator(
-                            progress = proportionUsed.toFloat(),
+                            progress = { proportionUsed.toFloat() },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
@@ -272,7 +269,7 @@ fun TransactionsCard(transactions: List<Transaction>, onViewAllClicked: () -> Un
             Text(text = "No transactions available", style = MaterialTheme.typography.bodyMedium)
         } else {
             Column {
-                transactions.forEach { transaction ->
+                transactions.reversed().forEach { transaction ->
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -347,11 +344,12 @@ fun GoalsCard(goals: List<Goal>) {
 }
 
 @Composable
-fun TaxesCard(taxCollected: Double, taxableAmount: Double) {
+fun TaxesCard(taxCollected: Double, taxableAmount: Double, taxRate: Double) {
     InfoCard(title = "Taxes") {
+        val totalTax = taxableAmount*taxRate/100
         Row {
             CircularProgressIndicator(
-                progress = (taxCollected / taxableAmount).toFloat(),
+                progress = (taxCollected / totalTax).toFloat(),
                 modifier = Modifier
                     .size(80.dp)
                     .padding(bottom = 8.dp),
@@ -365,7 +363,7 @@ fun TaxesCard(taxCollected: Double, taxableAmount: Double) {
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "Estimated Taxes: ₹${getFormattedMoney(taxableAmount)}",
+                    text = "Estimated Taxes: ₹${getFormattedMoney(totalTax)}",
                     style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onPrimaryContainer)
                 )
             }

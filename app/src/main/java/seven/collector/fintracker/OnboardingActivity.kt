@@ -398,9 +398,10 @@ fun SetLimitsScreen(onNext: () -> Unit, viewModel: OnboardingViewModel) {
                     onValueChange = { newLimit ->
                         category.limit = newLimit.toDouble()
                     },
-                    valueRange = 0f..category.limit.toFloat(),
+                    valueRange = 0f..category.limit.toFloat()+1000,
                     steps = 1000,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = category.limit > 0
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -507,7 +508,7 @@ fun GoalsScreen(onFinish: (mainData: MainData) -> Unit, viewModel: OnboardingVie
                     transactions = emptyList(),
                     goals = viewModel.goals.toList(),
                     taxRate = viewModel.taxRate.value,
-                    taxableAmount = viewModel.income.value,
+                    taxableAmount = viewModel.income.value*12,
                     taxCollected = 0.0
                 )
                 onFinish(mainData)

@@ -1,70 +1,99 @@
 package seven.collector.fintracker
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModelProvider
 import com.google.gson.Gson
-import seven.collector.fintracker.data.Category
-import seven.collector.fintracker.data.Goal
 import seven.collector.fintracker.data.MainData
-import seven.collector.fintracker.data.Transaction
+import seven.collector.fintracker.helpers.DataHelper
+import seven.collector.fintracker.ui.theme.FinTrackerTheme
 import seven.collector.fintracker.viewModels.AddTransactionViewModel
+import seven.collector.fintracker.viewModels.TransactionType
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class AddTransactionActivity : ComponentActivity() {
-    private lateinit var addTransactionViewModel: AddTransactionViewModel
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         val jsonData = intent.getStringExtra("mainData") ?: ""
         val mainData = Gson().fromJson(jsonData, MainData::class.java)
-
-        addTransactionViewModel = AddTransactionViewModel(mainData)
+        val viewModel = AddTransactionViewModel(mainData, DataHelper(this))
+        // If editing an existing transaction, set it in the ViewModel
+        intent.getStringExtra("transactionId")?.let { transactionId ->
+            val transactionToEdit = mainData.transactions.find { it.id == transactionId }
+            viewModel.setEditingTransaction(transactionToEdit)
+        }
 
         setContent {
-            MaterialTheme {
-                AddTransactionScreen(viewModel = addTransactionViewModel)
+            FinTrackerTheme {
+                AddTransactionScreen(
+                    viewModel = viewModel,
+                    onTransactionAdded = {
+                        // Save updated MainData to your data source
+                        finish()
+                    }
+                )
             }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTransactionScreen(viewModel: AddTransactionViewModel) {
+fun AddTransactionScreen(
+    viewModel: AddTransactionViewModel,
+    onTransactionAdded: () -> Unit
+) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Add Transaction") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { innerPadding ->
+    Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
+            Text(
+                text = "Add Transaction",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
             TransactionTypeSelector(
                 selectedType = uiState.transactionType,
-                onTypeSelected = viewModel::updateTransactionType,
-                categories = uiState.categories,
-                goals = uiState.goals
+                onTypeSelected = viewModel::updateTransactionType
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -88,21 +117,74 @@ fun AddTransactionScreen(viewModel: AddTransactionViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (uiState.transactionType in uiState.categories) {
-                CategoryChips(
-                    categories = uiState.categories + uiState.goals,
-                    selectedCategory = uiState.category,
-                    onCategorySelected = viewModel::updateCategory
-                )
+            when (uiState.transactionType) {
+                TransactionType.EXPENSE -> {
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                        uiState.categories.forEach { category ->
+                            FilterChip(
+                                selected = uiState.category == category,
+                                onClick = { viewModel.updateCategory(category) },
+                                modifier = Modifier.padding(4.dp),
+                                label = { Text(category) }
+                            )
+                        }
+                    }
+                }
+
+                TransactionType.GOAL -> {
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                        uiState.goals.forEach { goal ->
+                            FilterChip(
+                                selected = uiState.goal == goal,
+                                onClick = { viewModel.updateGoal(goal) },
+                                modifier = Modifier.padding(4.dp),
+                                label = { Text(goal) }
+                            )
+                        }
+                    }
+                }
+
+                else -> { /* No additional fields needed for other transaction types */
+                }
             }
-            
+
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+            OutlinedTextField(
+                value = dateFormatter.format(Date(uiState.date)),
+                onValueChange = { },
+                label = { Text("Date") },
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val calendar = Calendar.getInstance()
+                        calendar.timeInMillis = uiState.date
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(year, month, dayOfMonth)
+                                viewModel.updateDate(calendar.timeInMillis)
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = viewModel::addOrUpdateTransaction,
+                onClick = {
+                    viewModel.addOrUpdateTransaction()
+                    onTransactionAdded()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Add Transaction")
+                Text(if (uiState.isEditing) "Update Transaction" else "Add Transaction")
             }
         }
     }
@@ -111,90 +193,30 @@ fun AddTransactionScreen(viewModel: AddTransactionViewModel) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TransactionTypeSelector(
-    selectedType: String,
-    categories: List<String>,
-    goals: List<String>,
-    onTypeSelected: (String) -> Unit
+    selectedType: TransactionType,
+    onTypeSelected: (TransactionType) -> Unit
 ) {
-    Column {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(all = 8.dp),
+    ) {
         Text(
             text = "Transaction Type",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(bottom = 8.dp)
         )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            (categories + goals ).forEach { type ->
+            TransactionType.entries.forEach { type ->
                 FilterChip(
                     selected = type == selectedType,
                     onClick = { onTypeSelected(type) },
-                    label = { Text(type) }
+                    label = { Text(type.name.capitalize()) }
                 )
             }
         }
     }
-}
-
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun CategoryChips(
-    categories: List<String>,
-    selectedCategory: String,
-    onCategorySelected: (String) -> Unit
-) {
-    Column {
-        Text(
-            text = "Category",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            categories.forEach { category ->
-                FilterChip(
-                    selected = category == selectedCategory,
-                    onClick = { onCategorySelected(category) },
-                    label = { Text(category) }
-                )
-            }
-            // Adding Savings and Taxes as options
-            listOf("Savings", "Taxes").forEach { option ->
-                FilterChip(
-                    selected = option == selectedCategory,
-                    onClick = { onCategorySelected(option) },
-                    label = { Text(option) }
-                )
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewAddTransactionScreen() {
-    AddTransactionScreen(viewModel = AddTransactionViewModel(MainData(
-        name = "John Doe",
-        balance = 5000.00,
-        income = 10000.00,
-        expense = 5000.00,
-        savings = 2000.00,
-        categories = listOf(
-            Category(name = "Food", limit = 2000.00, used = 1500.00),
-            Category(name = "Transport", limit = 1000.00, used = 700.00)
-        ),
-        transactions = listOf(
-            Transaction(name = "Grocery", Category(name = "Food", limit = 2000.00, used = 1500.00), amount = 500.00, time = 478383948, id = ""),
-            Transaction(name = "Bus Fare", Category(name = "Transport", limit = 1000.00, used = 700.00), amount = 50.00, time = 865894994, id = "")
-        ),
-        goals = listOf(
-            Goal(name = "Emergency Fund", total = 10000.00, collected = 3000.00),
-            Goal(name = "Vacation", total = 5000.00, collected = 1000.00)
-        ),
-        taxRate = 0.10,
-        taxableAmount = 10000.00,
-        taxCollected = 1000.00
-    )))
 }

@@ -11,8 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
+import seven.collector.fintracker.data.ChatMessage
 import seven.collector.fintracker.data.MainData
 import seven.collector.fintracker.ui.theme.FinTrackerTheme
 import seven.collector.fintracker.viewModels.ChatViewModel
@@ -43,31 +49,99 @@ fun ChatScreen(modifier: Modifier = Modifier, mainDataJson: String, viewModel: C
     val gson = Gson()
     val mainData = gson.fromJson(mainDataJson, MainData::class.java)
 
+    var userInput by remember { mutableStateOf("") }
+    val chatMessages by viewModel.chatMessages.collectAsState()
+
+    // Reference to the LazyColumn's state
+    val listState = rememberLazyListState()
+
+    // Scroll to the end when new messages are added
+    LaunchedEffect(chatMessages.size) {
+        if (chatMessages.isNotEmpty()) {
+            listState.scrollToItem(chatMessages.size - 1)
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.generateInsight(mainData)
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        if (viewModel.isLoading) {
-            CircularProgressIndicator()
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(4.dp)
+    if (viewModel.isLoading) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Heading
+            Text(
+                text = "Chat with AI",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f),
+                reverseLayout = false
             ) {
-                Text(
-                    text = viewModel.insight,
-                    modifier = Modifier.padding(16.dp)
+                items(chatMessages) { message ->
+                    ChatMessage(message)
+                }
+            }
+
+            // User input area
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextField(
+                    value = userInput,
+                    onValueChange = { userInput = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Type a message") }
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = {
+                    if (userInput.isNotBlank()) {
+                        viewModel.sendMessage(userInput)
+                        userInput = ""
+                    }
+                }) {
+                    Text("Send")
+                }
             }
         }
     }
 }
+
+
+@Composable
+fun ChatMessage(message: ChatMessage) {
+    val alignment: Alignment = if (message.isUser) Alignment.CenterEnd else Alignment.CenterStart
+    val backgroundColor = if (message.isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (message.isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .padding(8.dp),
+        contentAlignment = alignment
+    ) {
+        Text(
+            text = message.content,
+            color = textColor,
+            modifier = Modifier.background(backgroundColor, RoundedCornerShape(8.dp)).padding(8.dp)
+        )
+    }
+}
+
+
 
 @Preview(showBackground = true)
 @Composable
